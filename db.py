@@ -422,8 +422,8 @@ def get_mail_settings():
             pass
 
     settings = {
-        'sender_email': config_file_data.get('GMAIL_USER', ''),
-        'sender_password': config_file_data.get('GMAIL_APP_PASSWORD', ''),
+        'sender_email': os.environ.get('GMAIL_USER') or config_file_data.get('GMAIL_USER', ''),
+        'sender_password': os.environ.get('GMAIL_APP_PASSWORD') or config_file_data.get('GMAIL_APP_PASSWORD', ''),
         'admin_notification_email': '',
         'notifications_enabled': True
     }
