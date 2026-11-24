@@ -13,28 +13,22 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SERVICE_ACCOUNT_KEY_PATH = os.path.join(BASE_DIR, 'serviceAccountKey.json')
 
 if not firebase_admin._apps:
-    firebase_creds_b64 = os.environ.get('FIREBASE_CREDENTIALS_BASE64')
-    firebase_creds_env = os.environ.get('FIREBASE_CREDENTIALS_JSON')
-    if firebase_creds_b64 and firebase_creds_b64.strip():
-        import base64
+    raw_val = (os.environ.get('FIREBASE_CREDENTIALS_BASE64') or os.environ.get('FIREBASE_CREDENTIALS_JSON') or '').strip()
+    if raw_val:
         try:
-            raw_json = base64.b64decode(firebase_creds_b64.strip()).decode('utf-8')
-            creds_dict = json.loads(raw_json)
+            # Auto-detect whether user pasted raw JSON or base64 encoded string
+            if raw_val.startswith('{'):
+                creds_dict = json.loads(raw_val)
+            else:
+                import base64
+                decoded = base64.b64decode(raw_val).decode('utf-8')
+                creds_dict = json.loads(decoded)
             if 'private_key' in creds_dict and isinstance(creds_dict['private_key'], str):
                 creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
             cred = credentials.Certificate(creds_dict)
             firebase_admin.initialize_app(cred)
         except Exception as e:
-            raise ValueError(f"Failed to parse or initialize Firebase credentials from FIREBASE_CREDENTIALS_BASE64: {e}")
-    elif firebase_creds_env and firebase_creds_env.strip():
-        try:
-            creds_dict = json.loads(firebase_creds_env)
-            if 'private_key' in creds_dict and isinstance(creds_dict['private_key'], str):
-                creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
-            cred = credentials.Certificate(creds_dict)
-            firebase_admin.initialize_app(cred)
-        except Exception as e:
-            raise ValueError(f"Failed to parse or initialize Firebase credentials from FIREBASE_CREDENTIALS_JSON: {e}")
+            raise ValueError(f"Failed to parse or initialize Firebase credentials: {e}")
     elif os.path.exists(SERVICE_ACCOUNT_KEY_PATH):
         cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
         firebase_admin.initialize_app(cred)
