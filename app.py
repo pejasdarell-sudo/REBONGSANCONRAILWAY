@@ -1,3 +1,4 @@
+import os
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
 from datetime import datetime
 import calendar
@@ -9,7 +10,6 @@ import validators
 import esp32_qr_service
 from functools import wraps
 import smtplib
-import os
 import time
 import requests
 from werkzeug.utils import secure_filename
@@ -17,7 +17,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'rebongsancon-group15-secret-key'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'rebongsancon-group15-secret-key')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max payload limit
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -1497,11 +1497,12 @@ def api_delete_order_permanently():
     return jsonify({"status": "error", "message": msg}), 500
 
 if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
     print("=" * 65)
     print("RebongSancon Management System (Python + Flask + JS + HTML/CSS)")
     print("Laguna University Capstone - Group 15")
     print("Database: Google Cloud Firestore (Firebase)")
-    print("Server running at: http://127.0.0.1:5000")
+    print(f"Server running at: http://0.0.0.0:{port}")
     print("=" * 65)
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=False)
 

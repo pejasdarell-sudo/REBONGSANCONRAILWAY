@@ -13,11 +13,22 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SERVICE_ACCOUNT_KEY_PATH = os.path.join(BASE_DIR, 'serviceAccountKey.json')
 
 if not firebase_admin._apps:
-    if os.path.exists(SERVICE_ACCOUNT_KEY_PATH):
+    firebase_creds_env = os.environ.get('FIREBASE_CREDENTIALS_JSON')
+    if firebase_creds_env and firebase_creds_env.strip():
+        try:
+            creds_dict = json.loads(firebase_creds_env)
+            cred = credentials.Certificate(creds_dict)
+            firebase_admin.initialize_app(cred)
+        except Exception as e:
+            raise ValueError(f"Failed to parse or initialize Firebase credentials from FIREBASE_CREDENTIALS_JSON: {e}")
+    elif os.path.exists(SERVICE_ACCOUNT_KEY_PATH):
         cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
         firebase_admin.initialize_app(cred)
     else:
-        raise FileNotFoundError(f"serviceAccountKey.json not found at: {SERVICE_ACCOUNT_KEY_PATH}")
+        raise FileNotFoundError(
+            f"Firebase credentials not found. Either set the FIREBASE_CREDENTIALS_JSON "
+            f"environment variable or place serviceAccountKey.json at: {SERVICE_ACCOUNT_KEY_PATH}"
+        )
 
 db = firestore.client()
 
