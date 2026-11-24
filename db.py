@@ -13,10 +13,24 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SERVICE_ACCOUNT_KEY_PATH = os.path.join(BASE_DIR, 'serviceAccountKey.json')
 
 if not firebase_admin._apps:
+    firebase_creds_b64 = os.environ.get('FIREBASE_CREDENTIALS_BASE64')
     firebase_creds_env = os.environ.get('FIREBASE_CREDENTIALS_JSON')
-    if firebase_creds_env and firebase_creds_env.strip():
+    if firebase_creds_b64 and firebase_creds_b64.strip():
+        import base64
+        try:
+            raw_json = base64.b64decode(firebase_creds_b64.strip()).decode('utf-8')
+            creds_dict = json.loads(raw_json)
+            if 'private_key' in creds_dict and isinstance(creds_dict['private_key'], str):
+                creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
+            cred = credentials.Certificate(creds_dict)
+            firebase_admin.initialize_app(cred)
+        except Exception as e:
+            raise ValueError(f"Failed to parse or initialize Firebase credentials from FIREBASE_CREDENTIALS_BASE64: {e}")
+    elif firebase_creds_env and firebase_creds_env.strip():
         try:
             creds_dict = json.loads(firebase_creds_env)
+            if 'private_key' in creds_dict and isinstance(creds_dict['private_key'], str):
+                creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
             cred = credentials.Certificate(creds_dict)
             firebase_admin.initialize_app(cred)
         except Exception as e:
@@ -26,7 +40,7 @@ if not firebase_admin._apps:
         firebase_admin.initialize_app(cred)
     else:
         raise FileNotFoundError(
-            f"Firebase credentials not found. Either set the FIREBASE_CREDENTIALS_JSON "
+            f"Firebase credentials not found. Either set the FIREBASE_CREDENTIALS_BASE64 / FIREBASE_CREDENTIALS_JSON "
             f"environment variable or place serviceAccountKey.json at: {SERVICE_ACCOUNT_KEY_PATH}"
         )
 
@@ -231,9 +245,19 @@ def sync_all_package_qrs():
     except Exception as e:
         print(f"[FIRESTORE QR SYNC ERROR] {e}")
 
-# Run seed & QR check at module load
-seed_initial_data_if_empty()
-sync_all_package_qrs()
+# Run seed & QR check in background so Gunicorn boots instantly without 5-minute blocking timeouts
+import threading
+def _background_init():
+    try:
+        seed_initial_data_if_empty()
+    except Exception as e:
+        print(f"[FIRESTORE SEED ERROR] {e}")
+    try:
+        sync_all_package_qrs()
+    except Exception as e:
+        print(f"[FIRESTORE QR SYNC ERROR] {e}")
+
+threading.Thread(target=_background_init, daemon=True).start()
 
 # =====================================================================
 # 3. USERS & AUTHENTICATION (FIRESTORE)
